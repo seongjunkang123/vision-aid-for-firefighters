@@ -1,0 +1,36 @@
+trial number - information 
+Trial #1:
+- 100 training example
+- 2 epoch
+- 32 batch size
+- About 20 minutes
+- Google Colab CPU
+- lsun/classroom dataset
+
+Trial #2: 
+- 5000 training examples
+- 2 epoch
+- 32 batch size
+- About 5 Hours
+- Google Colab CPU
+- lsun/classroom dataset
+
+Trial #3:
+- 200 Training example
+- 20 epoch
+- 8 batch size
+- 1 minute
+- NVIDIA GeForce RTX 3060 Ti
+- BIPEDv2 Dataset
+- Test Loss: 0.0083
+- Test Accuracy: 0.7726
+
+Trial #4:
+- 200 Training example
+- 50 epoch
+- 8 batch size
+- 2 minute
+- NVIDIA GeForce RTX 3060 Ti
+- BIPEDv2 Dataset
+- Test Loss: 0.00297
+- Test Accuracy: 0.773
