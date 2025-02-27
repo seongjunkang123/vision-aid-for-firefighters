@@ -1,14 +1,20 @@
+# disabling tensorflow warnings
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+
+# imports
 import tensorflow as tf
 from tensorflow.keras import layers, models
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2 as cv
-import os
 import pickle
 from PIL import Image
 import information
+import random
 
-TRIAL_NUMBER = information.TRIALNUMBER
+# Getting the information from information.py module
+TRIAL_NUMBER = information.TRIAL_NUMBER
 MODEL_SAVE_PATH = information.MODEL_SAVE_PATH
 HISTORY_SAVE_PATH = information.HISTORY_SAVE_PATH
 EPOCH = information.EPOCH
@@ -52,23 +58,83 @@ test_image = load_dataset(test_image_path)
 test_label = load_dataset(test_label_path)
 
 # preprocess data
-train_image = train_image.astype('float32') / 255.0
-train_label = train_label.astype('float32') / 255.0
+train_image = train_image.astype('float32') 
+train_label = train_label.astype('float32')
 
-test_image = test_image.astype('float32') / 255.0
-test_label = test_label.astype('float32') / 255.0
+test_image = test_image.astype('float32') 
+test_label = test_label.astype('float32')
 
-train_image = np.expand_dims(train_image, axis=-1)
-train_label = np.expand_dims(train_label, axis=-1)
+# Data augmentation functions
+def random_flip(image, label):
+    if random.random() > 0.5:
+        image = np.fliplr(image)
+        label = np.fliplr(label)
+    if random.random() > 0.5:
+        image = np.flipud(image)
+        label = np.flipud(label)
+    return image, label
 
-test_image = np.expand_dims(test_image, axis=-1)
-test_label = np.expand_dims(test_label, axis=-1)
+def random_rotate(image, label):
+    k = random.randint(0, 3)
+    image = np.rot90(image, k=k)
+    label = np.rot90(label, k=k)
+    return image, label
 
-# train_dataset = tf.data.Dataset.from_tensor_slices((train_image, train_label))
-# train_dataset = train_dataset.shuffle(buffer_size=1024)
+def augment_image_and_label(image, label):
+    image, label = random_flip(image, label)
+    image, label = random_rotate(image, label)
+    return image, label
 
-# test_dataset = tf.data.Dataset.from_tensor_slices((test_image, test_label))
-# test_dataset = test_dataset.shuffle(buffer_size=1024)
+def augment_dataset(images, labels):
+    augmented_images = []
+    augmented_labels = []
+    for image, label in zip(images, labels):
+        augmented_image, augmented_label = augment_image_and_label(image, label)
+        augmented_images.append(augmented_image)
+        augmented_labels.append(augmented_label)
+    return np.array(augmented_images), np.array(augmented_labels)
+
+# Apply augmentation to the training data
+augmented_train_image, augmented_train_label = augment_dataset(train_image, train_label)
+
+# Combine original and augmented data
+combined_train_image = np.concatenate([train_image, augmented_train_image], axis=0)
+combined_train_label = np.concatenate([train_label, augmented_train_label], axis=0)
+
+def visualize_image_and_label(image, label, start, num_samples=5):
+    plt.figure(figsize=(15, 5))
+    for i in range(num_samples):
+        # Plot the image
+        plt.subplot(2, num_samples, i + 1)
+        plt.imshow(image[start + i])
+        plt.title(f"Image {i + 1}")
+        plt.axis('off')
+
+        # Plot the corresponding label
+        plt.subplot(2, num_samples, i + 1 + num_samples)
+        plt.imshow(label[start + i], cmap='gray')
+        plt.title(f"Label {i + 1}")
+        plt.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+visualize_image_and_label(combined_train_image, combined_train_label, start=200, num_samples=10)
+
+# callbacks
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+early_stopping_callback = EarlyStopping(
+    monitor='val_loss',
+    patience=5,
+    restore_best_weights=True
+)
+
+checkpoint_callback = ModelCheckpoint(
+    filepath=MODEL_SAVE_PATH,
+    monitor='val_loss',
+    save_best_only=True,
+    mode='min',
+    verbose=1
+)
 
 # initialize model
 def cnn_model(input_shape=(256, 256, 3)):
@@ -121,32 +187,16 @@ def cnn_model(input_shape=(256, 256, 3)):
     # print(model.summary())
     return model
 
-# callbacks
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-early_stopping_callback = EarlyStopping(
-    monitor='val_loss',
-    patience=5,
-    restore_best_weights=True
-)
-
-checkpoint_callback = ModelCheckpoint(
-    filepath=MODEL_SAVE_PATH,
-    monitor='val_loss',
-    save_best_only=True,
-    mode='min',
-    verbose=1
-)
-
 # model compile and fit
 model = cnn_model(input_shape=(256, 256, 3))
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 history = model.fit(
-    train_image, 
-    train_label, 
+    combined_train_image, 
+    combined_train_label, 
     epochs=EPOCH,
-    batch_size=BATCH_SIZE, 
+    batch_size=BATCH, 
     validation_split = 0.2,
-    validation_batch_size=BATCH_SIZE, 
+    validation_batch_size=BATCH, 
     callbacks=[early_stopping_callback, checkpoint_callback]
     )
 
