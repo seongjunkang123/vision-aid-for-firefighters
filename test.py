@@ -1,7 +1,11 @@
+# removing tf warnings
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+
+# imports
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 import numpy as np
-import os
 import matplotlib.pyplot as plt
 import pickle
 import cv2 as cv
@@ -10,7 +14,6 @@ import information
 import random
 
 model_path = information.MODEL_SAVE_PATH
-print(model_path)
 model = load_model(model_path)
 
 test_dir = 'prediction_images/'
@@ -18,32 +21,43 @@ test_dir = 'prediction_images/'
 # Preprocess prediction image
 images_files = sorted([f for f in os.listdir(test_dir) 
                        if f.endswith('.png') or f.endswith('jpg') or f.endswith('jpeg')])
-index = random.randrange(0, len(images_files))
-filename = images_files[index]
-image_path = os.path.join(test_dir, filename)
 
 image_size = (256, 256)
-image = np.empty((image_size[0], image_size[1], 3), dtype='float32')
+num_samples = len(images_files)
+i = 0
 
-img = Image.open(image_path)
-img = img.resize(image_size)
-image = np.array(img) / 255.0
-image = np.expand_dims(image, axis=0)
-print(image.shape)
+plt.figure(figsize=(15, 5))
 
-prediction = model.predict(image)
+for filename in images_files:
+    image_path = os.path.join(test_dir, filename)
 
-plt.figure(figsize=(10, 5))
-# Plot input image
-plt.subplot(1, 2, 1)
-plt.imshow(np.squeeze(image, axis=0))
-plt.title('Input Image')
-plt.axis('off')
+    img = Image.open(image_path)
+    img = img.resize(image_size)
 
-# Plot predicted edges
-plt.subplot(1, 2, 2)
-plt.imshow(np.squeeze(prediction, axis=0), cmap='gray')
-plt.title('Predicted Edges')
-plt.axis('off')
+    image = np.array(img) / 255.0
+    image = np.expand_dims(image, axis=0)  # Shape becomes (1, 256, 256, 3)
+    
+    print("Image shape:", image.shape)
+
+    prediction = model.predict(image)
+    print("Prediction shape:", prediction.shape)
+    
+    # Remove batch dimension from image for visualization
+    image = np.squeeze(image, axis=0)  # Shape becomes (256, 256, 3)
+    
+    # Plot the image
+    plt.subplot(2, num_samples, i + 1)
+    plt.imshow(image)
+    plt.title(f"Image {i + 1}")
+    plt.axis('off')
+
+    # Plot the corresponding label
+    plt.subplot(2, num_samples, i + 1 + num_samples)
+    plt.imshow(np.squeeze(prediction), cmap='gray')  # Squeeze prediction if needed
+    plt.title(f"Prediction {i + 1}")
+    plt.axis('off')
+    plt.tight_layout()
+
+    i += 1
 
 plt.show()

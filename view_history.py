@@ -6,7 +6,7 @@ import information
 TRIAL_NUMBER = 3  # Change this to the specific trial number you want
 
 # Construct the path dynamically
-path = f"training_history_trial_{TRIAL_NUMBER}.pkl"
+path = f"saved_histories/training_history_trial_{TRIAL_NUMBER}.pkl"
 
 print(f"Using trial number: {TRIAL_NUMBER}")
 print(f"Loading history from: {path}")
