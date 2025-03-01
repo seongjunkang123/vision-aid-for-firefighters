@@ -75,9 +75,15 @@ def random_flip(image, label):
     return image, label
 
 def random_rotate(image, label):
-    k = random.randint(0, 3)
-    image = np.rot90(image, k=k)
-    label = np.rot90(label, k=k)
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    angle = random.uniform(-180, 180)
+
+    M = cv.getRotationMatrix2D(center, angle, 1.0)
+
+    image = cv.warpAffine(image, M, (w, h), flags=cv.INTER_LINEAR)
+    label = cv.warpAffine(label, M, (w, h), flags=cv.INTER_LINEAR)
+
     return image, label
 
 def augment_image_and_label(image, label):
@@ -88,14 +94,22 @@ def augment_image_and_label(image, label):
 def augment_dataset(images, labels):
     augmented_images = []
     augmented_labels = []
+
+    multiple = 5
     for image, label in zip(images, labels):
-        augmented_image, augmented_label = augment_image_and_label(image, label)
-        augmented_images.append(augmented_image)
-        augmented_labels.append(augmented_label)
+        for i in range(multiple):            
+            augmented_image, augmented_label = augment_image_and_label(image, label)
+            augmented_images.append(augmented_image)
+            augmented_labels.append(augmented_label)
+            
     return np.array(augmented_images), np.array(augmented_labels)
 
 # Apply augmentation to the training data
 augmented_train_image, augmented_train_label = augment_dataset(train_image, train_label)
+if augmented_train_label.ndim == 3:
+    augmented_train_label = np.expand_dims(augmented_train_label, axis=-1)
+
+print (augmented_train_image.shape, augmented_train_label.shape)
 
 # Combine original and augmented data
 combined_train_image = np.concatenate([train_image, augmented_train_image], axis=0)
