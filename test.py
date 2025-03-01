@@ -1,5 +1,6 @@
 # removing tf warnings
 import os
+import re
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 # imports
@@ -18,9 +19,17 @@ model = load_model(model_path)
 
 test_dir = 'prediction_images/'
 
+def extract_number(filename):
+    match = re.search(r'\d+', filename)
+
+    if match:
+        return int(match.group())
+    else: return 0
+
 # Preprocess prediction image
 images_files = sorted([f for f in os.listdir(test_dir) 
-                       if f.endswith('.png') or f.endswith('jpg') or f.endswith('jpeg')])
+                       if f.endswith('.png') or f.endswith('.jpg') or f.endswith('.jpeg')], key=extract_number)
+print(images_files)
 
 image_size = (256, 256)
 num_samples = len(images_files)
@@ -88,4 +97,5 @@ def display_one(i):
 
     plt.show()
 
-display_all(10, 20)
+# display_all(10, 20)
+display_one(4)
