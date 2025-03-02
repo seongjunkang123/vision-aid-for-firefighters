@@ -4,7 +4,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # imports
 import tensorflow as tf
-from tensorflow.keras import layers, models
+from tensorflow.keras import layers, models, regularizers
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2 as cv
@@ -154,44 +154,50 @@ checkpoint_callback = ModelCheckpoint(
 def cnn_model(input_shape=(256, 256, 3)):
     inputs = layers.Input(shape=input_shape)
 
-    # Encoder (Downsampling)
+    # Downsampling
     def encoder_block(x, filters, kernel_size=(3, 3), padding='same', activation='relu'):
         x = layers.Conv2D(filters, kernel_size, padding=padding)(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
-        x = layers.Conv2D(filters, kernel_size, padding=padding)(x)
+        x = layers.Conv2D(filters, kernel_size, padding=padding, kernel_regularizer=regularizers.l2(0.01))(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
+
+        # Drop out
+        x = layers.Dropout(0.5)(x)
         return x
 
-    # Decoder (Upsampling)
+    # Upsampling
     def decoder_block(x, skip_features, filters, kernel_size=(3, 3), padding='same', activation='relu'):
         x = layers.Conv2DTranspose(filters, kernel_size, strides=(2, 2), padding=padding)(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
-        x = layers.concatenate([x, skip_features])  # Skip connection
-        x = layers.Conv2D(filters, kernel_size, padding=padding)(x)
+        x = layers.concatenate([x, skip_features]) 
+        x = layers.Conv2D(filters, kernel_size, padding=padding, kernel_regularizer=regularizers.l2(0.01))(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
+
+        # Drop out
+        x = layers.Dropout(0.5)(x)
         return x
 
     # Encoder Path
-    e1 = encoder_block(inputs, 32)  # Reduced filters
+    e1 = encoder_block(inputs, 32) 
     p1 = layers.MaxPooling2D((2, 2))(e1)
 
-    e2 = encoder_block(p1, 64)  # Reduced filters
+    e2 = encoder_block(p1, 64)
     p2 = layers.MaxPooling2D((2, 2))(e2)
 
-    e3 = encoder_block(p2, 128)  # Reduced filters
+    e3 = encoder_block(p2, 128)
     p3 = layers.MaxPooling2D((2, 2))(e3)
 
     # Bottleneck
-    bottleneck = encoder_block(p3, 256)  # Reduced filters
+    bottleneck = encoder_block(p3, 256)
 
     # Decoder Path
-    d1 = decoder_block(bottleneck, e3, 128)  # Reduced filters
-    d2 = decoder_block(d1, e2, 64)  # Reduced filters
-    d3 = decoder_block(d2, e1, 32)  # Reduced filters
+    d1 = decoder_block(bottleneck, e3, 128)  
+    d2 = decoder_block(d1, e2, 64) 
+    d3 = decoder_block(d2, e1, 32) 
 
     # Output layer
     outputs = layers.Conv2D(1, (1, 1), activation='sigmoid', padding='same')(d3)
