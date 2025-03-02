@@ -73,8 +73,19 @@ Trial #8:
 - 1000 Training examples with data augmentations
 - 50 epoch
 - 16 batch size
-- _ minutes
+- 3 minutes
 - NVIDIA GeForce RTX 3060 Ti
 - BIPEDv2 Dataset
 - Test Loss: 0.1298045
 - Test Accuracy: 0.77261
+
+Trial #9:
+- 200 Training examples
+- 1000 Training examples with data augmentations
+- 30 epoch
+- 16 batch size
+- 2:33 minutes
+- NVIDIA GeForce RTX 3060 Ti
+- BIPEDv2 Dataset
+- Test Loss: 0.14896956086158752
+- Test Accuracy: 0.7726129293441772
