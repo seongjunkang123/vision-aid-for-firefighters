@@ -98,4 +98,4 @@ def display_one(i):
     plt.show()
 
 # display_all(10, 20)
-display_one(4)
+display_one(30)
