@@ -17,11 +17,13 @@ with open(path, 'rb') as f:
 
 # Plot the training and validation accuracy
 plt.figure(figsize=(10,6))
-plt.plot(history['accuracy'], label='Training Accuracy')
-plt.plot(history['val_accuracy'], label='Validation Accuracy')
+plt.plot(history['loss'], label='Training Accuracy')
+plt.plot(history['val_loss'], label='Validation Accuracy')
 plt.title("Training and Validation Accuracy: Trial " + str(TRIAL_NUMBER))
 plt.xlabel("Epoch")
 plt.ylabel("Accuracy")
 plt.legend()
 plt.grid(True)
 plt.show()
+
+print(max(history['val_accuracy']))

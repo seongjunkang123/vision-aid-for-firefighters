@@ -1,176 +1,181 @@
 # imports
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers, models
-from tensorflow.keras.callbacks import EarlyStopping
-import keras
-
-import os
-import matplotlib.pyplot as plt
 import numpy as np
-import cv2
-from sklearn.model_selection import train_test_split
-
-from PIL import Image
-
+import cv2 as cv
+import tensorflow as tf
+import keras
+import matplotlib.pyplot as plt
+import os
 import information
-MODEL_SAVE_PATH = information.MODEL_SAVE_PATH
-HISTORY_SAVE_PATH = information.HISTORY_SAVE_PATH
+import random
+
+# information calling
 NUM_EPOCHS = information.NUM_EPOCHS
 BATCH_SIZE = information.BATCH_SIZE
 INPUT_SHAPE = information.INPUT_SHAPE
+TRIAL = information.TRIAL
+MODEL_SAVE_PATH = information.MODEL_SAVE_PATH
+HISTORY_SAVE_PATH = information.HISTORY_SAVE_PATH
 
+"""#Data"""
+
+from PIL import Image
 def load_hazy_dataset(directory, image_size=(256, 256)):
     print(directory + ': ')
     image_files = sorted([f for f in os.listdir(directory) if f.endswith('.png') or
                                                         f.endswith('.jpg') or
                                                         f.endswith('.jpeg')])
-    length = len(image_files)
-    images = np.empty((length, image_size[0], image_size[1], 3), dtype='float32')
+    images = []
 
     for i, filename in enumerate(image_files):
         image_path = os.path.join(directory, filename)
         image = Image.open(image_path)
         image = image.resize(image_size)
-        images[i] = np.array(image) / 255.0
-        print("Loaded image ", i)
+        images.append(np.array(image) / 255.0)
+        # print("Loaded image ", i)
 
-    return images
+    return np.array(images)
 
-def load_trans_dataset(directory, image_size=(256, 256)):
-    print(directory + ': ')
-    image_files = sorted([f for f in os.listdir(directory) if f.endswith('.png') or
-                                                        f.endswith('.jpg') or
-                                                        f.endswith('.jpeg')])
-    length = 2000
-    images = np.empty((length, image_size[0], image_size[1], 1), dtype='float32')
-
-    i = 0
-    while i < length:
-        filename = image_files[i * 10]
-        image_path = os.path.join(directory, filename)
-        image = Image.open(image_path)
-        image = image.resize(image_size)
-        image.convert('L')
-        images[i, :, :, 0] = np.array(image) / 255.0
-
-        i += 1
-
-    return images
-
+from PIL import Image
 def load_clear_dataset(directory, image_size=(256, 256)):
     print(directory + ': ')
     image_files = sorted([f for f in os.listdir(directory) if f.endswith('.png') or
                                                         f.endswith('.jpg') or
                                                         f.endswith('.jpeg')])
-    print(len(image_files))
     images = []
 
-    i = 0
-    while i < 2000:
-        filename = image_files[i]
+    for i, filename in enumerate(image_files):
         image_path = os.path.join(directory, filename)
         image = Image.open(image_path)
         image = image.resize(image_size)
         images.append(np.array(image) / 255.0)
-
-        i += 1
+        # print("Loaded image ", i)
 
     return np.array(images)
 
-# hazy_folder_path = 'RESIDE/hazy/'
-# hazy_images = load_hazy_dataset(hazy_folder_path)
-# print(hazy_images.shape)
+hazy_folder_path = 'SMOKE/train/hazy/'
+hazy_images = load_hazy_dataset(hazy_folder_path)
 
-trans_folder_path = 'RESIDE/trans/'
-trans_images = load_trans_dataset(trans_folder_path)
-print(trans_images.shape)
-
-clear_folder_path = 'RESIDE/clear/'
+clear_folder_path = 'SMOKE/train/clean/'
 clear_images = load_clear_dataset(clear_folder_path)
-print(clear_images.shape)
 
-x_train, x_test, y_train, y_test = train_test_split(trans_images, clear_images, test_size=0.2, random_state=42, shuffle=True)
+# data augmentation
+def random_flip(image, label):
+    if random.random() > 0.5:
+        image = np.fliplr(image)
+        label = np.fliplr(label)
+    if random.random() > 0.5:
+        image = np.flipud(image)
+        label = np.flipud(label)
+    return image, label
 
-def build_dehazing_model():
-    model = keras.Sequential([
-        layers.Input(shape=INPUT_SHAPE),
+def random_rotate(image, label):
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    angle = random.uniform(-180, 180)
 
-        # Convolutional Layers (Feature Extraction)
-        layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
-        layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
-        layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
+    M = cv.getRotationMatrix2D(center, angle, 1.0)
 
-        # Convolutional Transpose Layers (Upsampling)
-        layers.Conv2DTranspose(64, (3, 3), activation='relu', padding='same'),
-        layers.Conv2DTranspose(32, (3, 3), activation='relu', padding='same'),
+    image = cv.warpAffine(image, M, (w, h), flags=cv.INTER_LINEAR)
+    label = cv.warpAffine(label, M, (w, h), flags=cv.INTER_LINEAR)
 
-        # Output Layer (Clear Image)
-        layers.Conv2D(3, (3, 3), activation='sigmoid', padding='same') #sigmoid outputs values between 0 and 1.
-    ])
-    return model
+    return image, label
 
-def build_dehazing_model2(input_shape=(256, 256, 1)):
+def augment_image_and_label(image, label):
+    image, label = random_flip(image, label)
+    image, label = random_rotate(image, label)
+    return image, label
+
+def augment_dataset(images, labels):
+    augmented_images = []
+    augmented_labels = []
+
+    multiple = 6
+    for image, label in zip(images, labels):
+        for i in range(multiple):            
+            augmented_image, augmented_label = augment_image_and_label(image, label)
+            augmented_images.append(augmented_image)
+            augmented_labels.append(augmented_label)
+            
+    return np.array(augmented_images), np.array(augmented_labels)
+
+augmented_train_image, augmented_train_label = augment_dataset(hazy_images, clear_images)
+if augmented_train_label.ndim == 3:
+    augmented_train_label = np.expand_dims(augmented_train_label, axis=-1)
+
+print (augmented_train_image.shape, augmented_train_label.shape)
+
+combined_train_image = np.concatenate([hazy_images, augmented_train_image], axis=0)
+combined_train_label = np.concatenate([clear_images, augmented_train_label], axis=0)
+
+# Considering the size of the dataset, data augmentation is probably unneccessary
+# and would take a lot of computing resources
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(combined_train_image, combined_train_label, test_size=0.2, random_state=42, shuffle=True)
+
+"""#Model Training"""
+from tensorflow.keras import layers, models, regularizers
+
+def build_dehazing_model(input_shape=INPUT_SHAPE):
     inputs = tf.keras.Input(shape=input_shape)
-    
-    # Encoder
-    x = layers.Conv2D(64, (3, 3), padding='same', activation='relu')(inputs)
+
+    #Encoder
+    x = layers.Conv2D(64, (3, 3), padding='same', activation='relu', kernel_regularizer=regularizers.l2(0.01))(inputs)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.5)(x)  # Added dropout with 0.5 probability
+    x = layers.MaxPooling2D((2, 2))(x)
+
+    x = layers.Conv2D(128, (3, 3), padding='same', activation='relu', kernel_regularizer=regularizers.l2(0.01))(x)
     x = layers.BatchNormalization()(x)
     x = layers.MaxPooling2D((2, 2))(x)
-    
-    x = layers.Conv2D(128, (3, 3), padding='same', activation='relu')(x)
+
+    x = layers.Conv2D(256, (3, 3), padding='same', activation='relu', kernel_regularizer=regularizers.l2(0.01))(x)
     x = layers.BatchNormalization()(x)
-    x = layers.MaxPooling2D((2, 2))(x)
-    
-    x = layers.Conv2D(256, (3, 3), padding='same', activation='relu')(x)
-    x = layers.BatchNormalization()(x)
-    
-    # Decoder
+    x = layers.Dropout(0.5)(x)  # Added dropout with 0.5 probability
+
+    #Decoder
     x = layers.Conv2DTranspose(128, (3, 3), strides=(2, 2), padding='same', activation='relu')(x)
     x = layers.BatchNormalization()(x)
-    
+
     x = layers.Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same', activation='relu')(x)
     x = layers.BatchNormalization()(x)
-    
-    # Output layer (3 channels for RGB)
+
+    #Output layer (3 channels for RGB)
     outputs = layers.Conv2D(3, (3, 3), padding='same', activation='sigmoid')(x)
-    
+
     model = models.Model(inputs, outputs, name="Dehazer")
     return model
 
+model = build_dehazing_model()
+model.summary()
+
+# callbacks
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 early_stopping_callback = EarlyStopping(
     monitor='val_loss',
     patience=5,
     restore_best_weights=True
 )
 
-model = build_dehazing_model2()
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-history = model.fit(  x_train,
+checkpoint_callback = ModelCheckpoint(
+    filepath=MODEL_SAVE_PATH,
+    monitor='val_loss',
+    save_best_only=True,
+    mode='min',
+    verbose=1
+)
+
+model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-5), loss=["mse"], metrics=["mae"])
+
+history = model.fit(X_train,
                       y_train,
                       epochs=NUM_EPOCHS,
                       batch_size=BATCH_SIZE,
                       validation_split=0.2,
-                      validation_batch_size=BATCH_SIZE,
-                      callbacks=[early_stopping_callback])
+                      validation_batch_size=BATCH_SIZE)
 
 model.save(MODEL_SAVE_PATH)
 
 import pickle
 with open(HISTORY_SAVE_PATH, 'wb') as file:
   pickle.dump(history.history, file)
-
-test_loss, test_accuracy = model.evaluate(x_test, y_test)
-print(f'Test Loss: {test_loss}')
-print(f'Test Accuracy: {test_accuracy}')
-
-# Plotting the history
-plt.figure(figsize=(10,6))
-plt.plot(history.history['accuracy'], label='Training Accuracy')
-plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-plt.title("training and validation accuracy")
-plt.xlabel("epoch")
-plt.ylabel('accuracy')
-plt.legend()
-plt.grid(True)
-plt.show()
