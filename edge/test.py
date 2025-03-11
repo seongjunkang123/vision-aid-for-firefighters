@@ -38,7 +38,7 @@ i = 0
 def get_prediction(filename):
     image_path = os.path.join(test_dir, filename)
 
-    img = Image.open(image_path)
+    img = Image.open(image_path).convert('RGB')  # Convert image to RGB
     img = img.resize(image_size)
 
     image = np.array(img) / 255.0
@@ -97,5 +97,4 @@ def display_one(i):
 
     plt.show()
 
-# display_all(10, 20)
-display_one(30)
+display_one(31)
