@@ -89,7 +89,7 @@ def augment_dataset(images, labels):
     augmented_images = []
     augmented_labels = []
 
-    multiple = 6
+    multiple = 7
     for image, label in zip(images, labels):
         for i in range(multiple):            
             augmented_image, augmented_label = augment_image_and_label(image, label)
@@ -114,65 +114,79 @@ from sklearn.model_selection import train_test_split
 X_train, X_test, y_train, y_test = train_test_split(combined_train_image, combined_train_label, test_size=0.2, random_state=42, shuffle=True)
 
 """#Model Training"""
-from tensorflow.keras import layers, models, regularizers
+from tensorflow.keras import layers, models
 
 def build_dehazing_model(input_shape=INPUT_SHAPE):
     inputs = tf.keras.Input(shape=input_shape)
 
-    #Encoder
-    x = layers.Conv2D(64, (3, 3), padding='same', activation='relu', kernel_regularizer=regularizers.l2(0.01))(inputs)
+    # Encoder - Reduced number of filters
+    # Initial convolution
+    x = layers.Conv2D(32, (3, 3), padding='same')(inputs)
+    x = layers.LeakyReLU(alpha=0.2)(x)
     x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)  # Added dropout with 0.5 probability
-    x = layers.MaxPooling2D((2, 2))(x)
+    skip1 = x  # Skip connection 1
 
-    x = layers.Conv2D(128, (3, 3), padding='same', activation='relu', kernel_regularizer=regularizers.l2(0.01))(x)
+    # Encoder block 1
+    x = layers.Conv2D(64, (3, 3), strides=(2, 2), padding='same')(x)
+    x = layers.LeakyReLU(alpha=0.2)(x)
     x = layers.BatchNormalization()(x)
-    x = layers.MaxPooling2D((2, 2))(x)
+    x = layers.Dropout(0.5)(x)
+    skip2 = x  # Skip connection 2
 
-    x = layers.Conv2D(256, (3, 3), padding='same', activation='relu', kernel_regularizer=regularizers.l2(0.01))(x)
+    # Encoder block 2 - Reduced filters
+    x = layers.Conv2D(128, (3, 3), strides=(2, 2), padding='same')(x)
+    x = layers.LeakyReLU(alpha=0.2)(x)
     x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)  # Added dropout with 0.5 probability
+    x = layers.Dropout(0.5)(x)
 
-    #Decoder
-    x = layers.Conv2DTranspose(128, (3, 3), strides=(2, 2), padding='same', activation='relu')(x)
+    # Bridge - Single dilated convolution
+    x = layers.Conv2D(128, (3, 3), padding='same', dilation_rate=2)(x)
+    x = layers.LeakyReLU(alpha=0.2)(x)
     x = layers.BatchNormalization()(x)
 
-    x = layers.Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same', activation='relu')(x)
+    # Decoder block 1
+    x = layers.Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same')(x)
+    x = layers.LeakyReLU(alpha=0.2)(x)
     x = layers.BatchNormalization()(x)
+    x = layers.Concatenate()([x, skip2])
+    x = layers.Dropout(0.5)(x)
 
-    #Output layer (3 channels for RGB)
+    # Decoder block 2
+    x = layers.Conv2DTranspose(32, (3, 3), strides=(2, 2), padding='same')(x)
+    x = layers.LeakyReLU(alpha=0.2)(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Concatenate()([x, skip1])
+
+    # Final output
     outputs = layers.Conv2D(3, (3, 3), padding='same', activation='sigmoid')(x)
 
-    model = models.Model(inputs, outputs, name="Dehazer")
+    model = models.Model(inputs, outputs, name="LightDehazer")
     return model
-
+# Build and compile model
 model = build_dehazing_model()
-model.summary()
-
-# callbacks
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+model.compile(
+    optimizer='adam',
+    loss='mse',
+    metrics=['mae', 'mse']
+)
+from tensorflow.keras.callbacks import EarlyStopping
 early_stopping_callback = EarlyStopping(
     monitor='val_loss',
     patience=5,
     restore_best_weights=True
 )
 
-checkpoint_callback = ModelCheckpoint(
-    filepath=MODEL_SAVE_PATH,
-    monitor='val_loss',
-    save_best_only=True,
-    mode='min',
-    verbose=1
+# Update the training
+history = model.fit(
+    X_train,
+    y_train,
+    epochs=NUM_EPOCHS,
+    batch_size=BATCH_SIZE,
+    validation_split=0.2,
+    callbacks=[
+        early_stopping_callback,
+    ]
 )
-
-model.compile(optimizer=keras.optimizers.Adam(learning_rate=1e-5), loss=["mse"], metrics=["mae"])
-
-history = model.fit(X_train,
-                      y_train,
-                      epochs=NUM_EPOCHS,
-                      batch_size=BATCH_SIZE,
-                      validation_split=0.2,
-                      validation_batch_size=BATCH_SIZE)
 
 model.save(MODEL_SAVE_PATH)
 

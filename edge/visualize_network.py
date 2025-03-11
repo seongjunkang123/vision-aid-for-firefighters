@@ -28,17 +28,5 @@ grid = explainer.explain((np.expand_dims(x_test, axis=0), None),
                         class_index=0,
                         layer_name=last_conv_layer.name)
 
-# Display the results
-plt.figure(figsize=(10, 5))
-plt.subplot(1, 2, 1)
-plt.imshow(x_test)
-plt.title('Original Image')
-plt.axis('off')
-
-plt.subplot(1, 2, 2)
-plt.imshow(x_test)
-plt.imshow(grid, alpha=0.5, cmap='jet')
-plt.title('GradCAM Heatmap')
-plt.axis('off')
-
+plt.imshow(grid, cmap='jet')
 plt.show()
