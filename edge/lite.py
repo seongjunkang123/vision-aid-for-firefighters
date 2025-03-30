@@ -5,6 +5,9 @@ path = information.MODEL_SAVE_PATH
 model = tf.keras.models.load_model(path)
 converter = tf.lite.TFLiteConverter.from_keras_model(model)
 converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+converter.experimental_new_converter = True
+converter._experimental_lower_tensor_list_ops = True
 
 tflite_model = converter.convert()
 with open('model_1.tflite', 'wb') as f:
