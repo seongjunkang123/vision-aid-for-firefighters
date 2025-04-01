@@ -162,27 +162,25 @@ def cnn_model(input_shape=(256, 256, 3)):
         x = layers.Conv2D(filters, kernel_size, padding=padding, kernel_regularizer=regularizers.l2(0.01))(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
-
-        # Drop out
         x = layers.Dropout(0.5)(x)
         return x
 
     # Upsampling
     def decoder_block(x, skip_features, filters, kernel_size=(3, 3), padding='same', activation='relu'):
-        x = layers.Conv2DTranspose(filters, kernel_size, strides=(2, 2), padding=padding)(x)
+        # Replace Conv2DTranspose with UpSampling2D + Conv2D
+        x = layers.UpSampling2D(size=(2, 2))(x)
+        x = layers.Conv2D(filters, kernel_size, padding=padding)(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
-        x = layers.concatenate([x, skip_features]) 
+        x = layers.concatenate([x, skip_features])
         x = layers.Conv2D(filters, kernel_size, padding=padding, kernel_regularizer=regularizers.l2(0.01))(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
-
-        # Drop out
         x = layers.Dropout(0.5)(x)
         return x
 
     # Encoder Path
-    e1 = encoder_block(inputs, 32) 
+    e1 = encoder_block(inputs, 32)
     p1 = layers.MaxPooling2D((2, 2))(e1)
 
     e2 = encoder_block(p1, 64)
@@ -195,16 +193,15 @@ def cnn_model(input_shape=(256, 256, 3)):
     bottleneck = encoder_block(p3, 256)
 
     # Decoder Path
-    d1 = decoder_block(bottleneck, e3, 128)  
-    d2 = decoder_block(d1, e2, 64) 
-    d3 = decoder_block(d2, e1, 32) 
+    d1 = decoder_block(bottleneck, e3, 128)
+    d2 = decoder_block(d1, e2, 64)
+    d3 = decoder_block(d2, e1, 32)
 
     # Output layer
     outputs = layers.Conv2D(1, (1, 1), activation='sigmoid', padding='same')(d3)
 
     # Build the model
     model = models.Model(inputs, outputs, name='EdgeDetectionModel')
-    # print(model.summary())
     return model
 
 # model compile and fit
