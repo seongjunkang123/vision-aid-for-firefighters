@@ -154,53 +154,48 @@ checkpoint_callback = ModelCheckpoint(
 def cnn_model(input_shape=(256, 256, 3)):
     inputs = layers.Input(shape=input_shape)
 
-    # Downsampling
-    def encoder_block(x, filters, kernel_size=(3, 3), padding='same', activation='relu'):
-        x = layers.Conv2D(filters, kernel_size, padding=padding)(x)
+    # Modify encoder to store both pre and post stride outputs
+    def encoder_block(x, filters, strides=(1, 1), kernel_size=(3, 3), padding='same', activation='relu'):
+        # First conv without stride to get skip connection
+        skip = layers.SeparableConv2D(filters, kernel_size, padding=padding)(x)
+        skip = layers.BatchNormalization()(skip)
+        skip = layers.Activation(activation)(skip)
+        
+        # Second conv with stride for downsampling
+        x = layers.SeparableConv2D(filters, kernel_size, strides=strides, padding=padding)(skip)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
-        x = layers.Conv2D(filters, kernel_size, padding=padding, kernel_regularizer=regularizers.l2(0.01))(x)
-        x = layers.BatchNormalization()(x)
-        x = layers.Activation(activation)(x)
-        x = layers.Dropout(0.5)(x)
-        return x
+        
+        return x, skip
 
-    # Upsampling
+    # Upsampling (unchanged)
     def decoder_block(x, skip_features, filters, kernel_size=(3, 3), padding='same', activation='relu'):
-        # Replace Conv2DTranspose with UpSampling2D + Conv2D
-        x = layers.UpSampling2D(size=(2, 2))(x)
-        x = layers.Conv2D(filters, kernel_size, padding=padding)(x)
+        x = layers.UpSampling2D(size=(2, 2), interpolation='bilinear')(x)
+        x = layers.SeparableConv2D(filters, kernel_size, padding=padding)(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
         x = layers.concatenate([x, skip_features])
-        x = layers.Conv2D(filters, kernel_size, padding=padding, kernel_regularizer=regularizers.l2(0.01))(x)
+        x = layers.SeparableConv2D(filters, kernel_size, padding=padding)(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
-        x = layers.Dropout(0.5)(x)
         return x
 
-    # Encoder Path
-    e1 = encoder_block(inputs, 32)
-    p1 = layers.MaxPooling2D((2, 2))(e1)
-
-    e2 = encoder_block(p1, 64)
-    p2 = layers.MaxPooling2D((2, 2))(e2)
-
-    e3 = encoder_block(p2, 128)
-    p3 = layers.MaxPooling2D((2, 2))(e3)
+    # Encoder Path with skip connections
+    x = inputs
+    x, s1 = encoder_block(x, 32, strides=(2, 2))    # 128x128
+    x, s2 = encoder_block(x, 64, strides=(2, 2))    # 64x64
+    x, s3 = encoder_block(x, 128, strides=(2, 2))   # 32x32
 
     # Bottleneck
-    bottleneck = encoder_block(p3, 256)
+    bottleneck = x  # Already at 32x32
 
-    # Decoder Path
-    d1 = decoder_block(bottleneck, e3, 128)
-    d2 = decoder_block(d1, e2, 64)
-    d3 = decoder_block(d2, e1, 32)
+    # Decoder Path with matching skip connections
+    d1 = decoder_block(bottleneck, s3, 128)  # 64x64
+    d2 = decoder_block(d1, s2, 64)           # 128x128
+    d3 = decoder_block(d2, s1, 32)           # 256x256
 
-    # Output layer
-    outputs = layers.Conv2D(1, (1, 1), activation='sigmoid', padding='same')(d3)
-
-    # Build the model
+    outputs = layers.SeparableConv2D(1, (1, 1), activation='sigmoid', padding='same')(d3)
+    
     model = models.Model(inputs, outputs, name='EdgeDetectionModel')
     return model
 

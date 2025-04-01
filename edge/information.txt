@@ -89,3 +89,14 @@ Trial #9:
 - BIPEDv2 Dataset
 - Test Loss: 0.14896956086158752
 - Test Accuracy: 0.7726129293441772
+
+Trial #10:
+- Same thing before
+- Made the structure slightly different by changing to upscaling because tf lite
+
+Trial #11: (future works)
+- Same training procedure
+- Introduced Conv2D with stride (2, 2)
+- Conv2D -> SeparableConv2D
+- Delete Drop out layers
+- Delete MaxPooling2D layers
