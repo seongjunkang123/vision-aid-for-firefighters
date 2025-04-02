@@ -155,7 +155,7 @@ def cnn_model(input_shape=(256, 256, 3)):
     inputs = layers.Input(shape=input_shape)
 
     # Modify encoder to store both pre and post stride outputs
-    def encoder_block(x, filters, strides=(1, 1), kernel_size=(3, 3), padding='same', activation='relu'):
+    def encoder_block(x, filters, strides=(2, 2), kernel_size=(3, 3), padding='same', activation='relu'):
         # First conv without stride to get skip connection
         skip = layers.SeparableConv2D(filters, kernel_size, padding=padding)(x)
         skip = layers.BatchNormalization()(skip)
@@ -170,7 +170,7 @@ def cnn_model(input_shape=(256, 256, 3)):
 
     # Upsampling (unchanged)
     def decoder_block(x, skip_features, filters, kernel_size=(3, 3), padding='same', activation='relu'):
-        x = layers.UpSampling2D(size=(2, 2), interpolation='bilinear')(x)
+        x = layers.UpSampling2D(size=(2, 2))(x)
         x = layers.SeparableConv2D(filters, kernel_size, padding=padding)(x)
         x = layers.BatchNormalization()(x)
         x = layers.Activation(activation)(x)
@@ -180,19 +180,16 @@ def cnn_model(input_shape=(256, 256, 3)):
         x = layers.Activation(activation)(x)
         return x
 
-    # Encoder Path with skip connections
     x = inputs
     x, s1 = encoder_block(x, 32, strides=(2, 2))    # 128x128
     x, s2 = encoder_block(x, 64, strides=(2, 2))    # 64x64
-    x, s3 = encoder_block(x, 128, strides=(2, 2))   # 32x32
+    # x, s3 = encoder_block(x, 128, strides=(2, 2))   # 32x32
 
-    # Bottleneck
     bottleneck = x  # Already at 32x32
 
-    # Decoder Path with matching skip connections
-    d1 = decoder_block(bottleneck, s3, 128)  # 64x64
-    d2 = decoder_block(d1, s2, 64)           # 128x128
-    d3 = decoder_block(d2, s1, 32)           # 256x256
+    # d1 = decoder_block(bottleneck, s3, 128)   # 64x64
+    d2 = decoder_block(bottleneck, s2, 64)      # 128x128
+    d3 = decoder_block(d2, s1, 32)              # 256x256
 
     outputs = layers.SeparableConv2D(1, (1, 1), activation='sigmoid', padding='same')(d3)
     
