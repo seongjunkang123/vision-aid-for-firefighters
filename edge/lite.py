@@ -28,7 +28,7 @@ converter.representative_dataset = representative_dataset
 converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
 converter.inference_input_type = tf.int8
 converter.inference_output_type = tf.int8
-converter._experimental_lower_tensor_list_ops = True
+# converter._experimental_lower_tensor_list_ops = True
 
 tflite_model = converter.convert()
 
