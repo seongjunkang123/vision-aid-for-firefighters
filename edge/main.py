@@ -171,9 +171,9 @@ def cnn_model(input_shape=(256, 256, 3)):
     # Upsampling (unchanged)
     def decoder_block(x, skip_features, filters, kernel_size=(3, 3), padding='same', activation='relu'):
         x = layers.UpSampling2D(size=(2, 2))(x)
-        x = layers.SeparableConv2D(filters, kernel_size, padding=padding)(x)
-        x = layers.BatchNormalization()(x)
-        x = layers.Activation(activation)(x)
+        # x = layers.SeparableConv2D(filters, kernel_size, padding=padding)(x)
+        # x = layers.BatchNormalization()(x)
+        # x = layers.Activation(activation)(x)
         x = layers.concatenate([x, skip_features])
         x = layers.SeparableConv2D(filters, kernel_size, padding=padding)(x)
         x = layers.BatchNormalization()(x)

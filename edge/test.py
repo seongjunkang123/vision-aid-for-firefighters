@@ -97,4 +97,4 @@ def display_one(i):
 
     plt.show()
 
-display_one(6)
+display_one(4)
