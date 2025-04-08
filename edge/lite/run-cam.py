@@ -1,31 +1,54 @@
 import cv2
+import time
+import math
+
+LENGTH = 256
 
 def main():
-    # For Raspberry Pi camera module
-    cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+    cap = cv2.VideoCapture(0)
     
-    # Set resolution (optional)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, LENGTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, LENGTH)
     
     if not cap.isOpened():
         print("Could not open camera.")
         return
     
+    count = 0
+    
     try:
         while True:
-            ret, frame = cap.read()
+            start = time.time() 
+
+            ret, frame = cap.read() # read frame
             
             if not ret:
                 print("Error: Could not read frame.")
                 break
             
-            frame = cv2.flip(frame, 1)
+            end = time.time()
+            fps = math.ceil(1/(end - start))
+            count += 1
+
+            if count == 1:
+                average_fps = fps
+            else:
+                average_fps = math.ceil((average_fps * count + fps) / (count + 1))
             
-            cv2.imshow('Camera', frame)
+            frame = cv2.flip(frame, 1) # mirror frame
+
+            # print(f"fps: {fps} \r")
+            # print(f"average fps: {average_fps}\r")
+
             
+            cv2.putText(frame, f"fps: {str(fps)}", (10, 30), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255))
+            cv2.putText(frame, f"average fps: {str(average_fps)}", (10, 60), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255))
+
+            cv2.imshow('Camera', frame) # show frame
+
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+            
     finally:
         cap.release()
         cv2.destroyAllWindows()
