@@ -8,7 +8,7 @@ import time
 import tensorflow as tf
 import info
 
-interpreter = tf.lite.Interpreter(model_path=info.get_path(6))
+interpreter = tf.lite.Interpreter(model_path=info.get_path(0))
 interpreter.allocate_tensors()
 
 input_details = interpreter.get_input_details()
@@ -17,7 +17,11 @@ output_details = interpreter.get_output_details()
 input_shape = input_details[0]['shape']
 height, width = input_shape[1], input_shape[2]  # Model's expected input size
 
+SIZE = 256
 cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, SIZE)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, SIZE)
+
 count = 0
 
 while True:
@@ -30,13 +34,20 @@ while True:
     # Convert BGR (OpenCV default) to RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     rgb_frame = cv2.flip(rgb_frame, 1)
+
+    # Preprocess input
     resized_frame = cv2.resize(rgb_frame, (width, height))  # Resize to model input size
     input_data = resized_frame.astype('float32') / 255.0
     input_data = np.expand_dims(input_data, axis=0)
+
+    # Inference / Prediction
     interpreter.set_tensor(input_details[0]['index'], input_data)
     interpreter.invoke()
     output_data = interpreter.get_tensor(output_details[0]['index'])
-    output_data = np.squeeze(output_data) * 255 # Remove batch dimension
+
+    # Process Output
+    output_data = np.squeeze(output_data)  # Remove batch dimension
+    output_data = (output_data - output_data.min()) / (output_data.max() - output_data.min()) * 255
     output_data = output_data.astype('uint8')
     output_data = cv2.resize(output_data, (512, 512))
 
