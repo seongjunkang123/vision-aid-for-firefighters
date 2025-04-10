@@ -1,58 +1,68 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+import math
 import cv2
 import numpy as np
-import tensorflow as tf
 import time
+import tensorflow as tf
+import info
 
-path = 'lite-models/model_5.tflite'
+model_num = 7
+path = info.get_path(model_num)
+
 interpreter = tf.lite.Interpreter(model_path=path)
 interpreter.allocate_tensors()
 
-# Get input & output tensor details
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
 
-# Check if UINT8 model is being used
-input_dtype = input_details[0]['dtype']
-assert input_dtype == np.uint8, f"Expected UINT8 input, but got {input_dtype}"
-
-# Get input shape
 input_shape = input_details[0]['shape']
-height, width = input_shape[1], input_shape[2] 
+height, width = input_shape[1], input_shape[2]  # Model's expected input size
 
-# Start video capture
-cap = cv2.VideoCapture(0) 
+print("input: ", input_details[0]['dtype'])
+print("output", output_details[0]['dtype'])
+
+cap = cv2.VideoCapture(0)
+count = 0
 
 while True:
-    start_time = time.time()  
+    start = time.time()
+
     ret, frame = cap.read()
     if not ret:
         break
 
     # Convert BGR (OpenCV default) to RGB
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    resized_frame = cv2.resize(rgb_frame, (width, height))  # Resize to model input size
+    # rgb_frame = cv2.flip(rgb_frame, 1)
 
-    # Convert to UINT8 (no need to normalize)
-    input_data = resized_frame.astype(np.uint8)
-    input_data = np.expand_dims(input_data, axis=0)  # Add batch dimension
+    resized_frame = cv2.resize(rgb_frame, (width, height))
+    # input_data = resized_frame.astype('uint8')
+    input_data = np.expand_dims(resized_frame, axis=0)
 
-    # Run inference
     interpreter.set_tensor(input_details[0]['index'], input_data)
     interpreter.invoke()
 
-    # Get output tensor
     output_data = interpreter.get_tensor(output_details[0]['index'])
+    output_data = np.squeeze(output_data) # Remove batch dimension
+    output_data = (output_data - output_data.min()) / (output_data.max() - output_data.min())
+    # output_data = output_data.astype('uint8')
 
-    # Convert output to 8-bit grayscale image
-    output_data = np.squeeze(output_data)  # Remove batch dimension
-    output_data = cv2.resize(output_data, (640, 480))  # Resize for display
+    # print(output_data.shape)
+    output_data = cv2.resize(output_data, (512, 512))
 
-    # Show output
+    end = time.time()
+    fps = math.ceil(1 / (end - start))
+    count += 1
+    print(f"{fps} fps")
+
+    if count == 1:
+        average_fps = fps
+    else:
+        average_fps = math.ceil((average_fps * count + fps) / (count + 1))
+
     cv2.imshow("Edge Detection", output_data)
-
-    # Calculate FPS
-    fps = 1.0 / (time.time() - start_time)
-    print(f"FPS: {fps:.2f}")
 
     # Press 'q' to exit
     if cv2.waitKey(1) & 0xFF == ord('q'):
