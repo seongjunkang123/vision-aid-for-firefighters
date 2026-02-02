@@ -5,11 +5,11 @@ import math
 LENGTH = 256
 
 def main():
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, LENGTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, LENGTH)
-    
+    # print(cap.set(cv2.CAP_PROP_FRAME_WIDTH, LENGTH))
+    # print(cap.set(cv2.CAP_PROP_FRAME_HEIGHT, LENGTH))
+
     if not cap.isOpened():
         print("Could not open camera.")
         return
@@ -21,28 +21,13 @@ def main():
             start = time.time() 
 
             ret, frame = cap.read() # read frame
-            
+            print(frame.shape)
+
             if not ret:
                 print("Error: Could not read frame.")
                 break
-            
-            end = time.time()
-            fps = math.ceil(1/(end - start))
-            count += 1
 
-            if count == 1:
-                average_fps = fps
-            else:
-                average_fps = math.ceil((average_fps * count + fps) / (count + 1))
-            
-            frame = cv2.flip(frame, 1) # mirror frame
-
-            # print(f"fps: {fps} \r")
-            # print(f"average fps: {average_fps}\r")
-
-            
-            cv2.putText(frame, f"fps: {str(fps)}", (10, 30), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255))
-            cv2.putText(frame, f"average fps: {str(average_fps)}", (10, 60), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255))
+            frame = cv2.flip(frame, 1)
 
             cv2.imshow('Camera', frame) # show frame
 
