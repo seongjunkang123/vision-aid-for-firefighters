@@ -2,3 +2,9 @@ smoke/RESIDE/
 smoke/FogRemoval-main/
 /.idea
 program-venv/
+/__pycache__
+/edge/__pycache__
+/edge/lite/__pycache__
+/edge/saved_models/cnn_trial_14.pb
+/edge/saved_models/cnn_trial_15.pbtxt
+/smoke/__pycache__
